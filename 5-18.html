@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kindergarten A-Z Sight Word Match</title>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Comic Sans MS', 'Fredoka One', cursive, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Control Panel Header */
+        .header-panel {
+            background-color: #ffffff;
+            padding: 15px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .print-btn {
+            background-color: #ff5722;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 10px rgba(255, 87, 34, 0.4);
+        }
+
+        .print-btn:hover {
+            background-color: #e64a19;
+            transform: scale(1.05);
+        }
+
+        /* Page Layout for 8.5 x 11 Inches at 96 DPI */
+        .page-container {
+            background: white;
+            width: 816px;  /* 8.5 inches */
+            height: 1056px; /* 11 inches */
+            margin-bottom: 30px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.15);
+            page-break-after: always;
+            display: block;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Print Specific Optimization */
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+                margin: 0;
+            }
+            .header-panel {
+                display: none; /* Hide UI when printing */
+            }
+            .page-container {
+                margin: 0;
+                box-shadow: none;
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-panel">
+        <h2 style="color: #2196F3; margin: 0 0 10px 0;">✏️ Letter & Sight Word Matcher</h2>
+        <p style="color: #555; margin: 0 0 15px 0;">Click below to open the print menu. Ensure your layout is set to <b>Portrait</b> and margins are set to <b>Default/None</b>.</p>
+        <button class="print-btn" onclick="window.print()">🖨️ Print Worksheets</button>
+    </div>
+
+    <div id="worksheet-root"></div>
+
+    <script>
+        // Kindergarten friendly A-Z database 
+        const sightWordData = [
+            { letter: 'A a', word: 'Apple', emoji: '🍎' },
+            { letter: 'B b', word: 'Bear', emoji: '🐻' },
+            { letter: 'C c', word: 'Cat', emoji: '🐱' },
+            { letter: 'D d', word: 'Dog', emoji: '🐶' },
+            { letter: 'E e', word: 'Egg', emoji: '🥚' },
+            { letter: 'F f', word: 'Fish', emoji: '🐟' },
+            { letter: 'G g', word: 'Goat', emoji: '🐐' },
+            { letter: 'H h', word: 'Hat', emoji: '👒' },
+            { letter: 'I i', word: 'Igloo', emoji: '⛺' },
+            { letter: 'J j', word: 'Jar', emoji: '🫙' },
+            { letter: 'K k', word: 'Kite', emoji: '🪁' },
+            { letter: 'L l', word: 'Lion', emoji: '🦁' },
+            { letter: 'M m', word: 'Monkey', emoji: '🐵' },
+            { letter: 'N n', word: 'Nest', emoji: '🪹' },
+            { letter: 'O o', word: 'Owl', emoji: '🦉' },
+            { letter: 'P p', word: 'Pig', emoji: '🐷' },
+            { letter: 'Q q', word: 'Queen', emoji: '👑' },
+            { letter: 'R r', word: 'Sun', emoji: '☀️' }, // Simplified sight context
+            { letter: 'S s', word: 'Star', emoji: '⭐' },
+            { letter: 'T t', word: 'Tree', emoji: '🌳' },
+            { letter: 'U u', word: 'Umbrella', emoji: '☂️' },
+            { letter: 'V v', word: 'Van', emoji: '🚐' },
+            { letter: 'W w', word: 'Water', emoji: '💧' },
+            { letter: 'X x', word: 'X-ray', emoji: '🩻' },
+            { letter: 'Y y', word: 'Yo-yo', emoji: '🪀' },
+            { letter: 'Z z', word: 'Zebra', emoji: '🦓' }
+        ];
+
+        // Helper function to non-destructively shuffle array items for matching chaos
+        function shuffle(array) {
+            let shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        const root = document.getElementById('worksheet-root');
+        const itemsPerPage = 5; // 5 matches per page keeps it clean and spacious for little hands
+
+        // Chunking the A-Z data into bite-sized pages
+        for (let i = 0; i < sightWordData.length; i += itemsPerPage) {
+            const pageData = sightWordData.slice(i, i + itemsPerPage);
+            createWorksheetPage(pageData, Math.floor(i / itemsPerPage) + 1);
+        }
+
+        function createWorksheetPage(dataChunk, pageNumber) {
+            // Create Page Wrapper
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page-container';
+
+            // Create Canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 816;  // 8.5" at 96 DPI
+            canvas.height = 1056; // 11" at 96 DPI
+            const ctx = canvas.getContext('2d');
+
+            pageDiv.appendChild(canvas);
+            root.appendChild(pageDiv);
+
+            // Shuffled right column data so lines cross!
+            const shuffledRightColumn = shuffle(dataChunk);
+
+            // --- DRAW BACKGROUND & BORDERS ---
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Playful primary colored border layers
+            const colors = ['#FF5722', '#4CAF50', '#2196F3', '#FFEB3B', '#9C27B0'];
+            const pageColor = colors[(pageNumber - 1) % colors.length];
+
+            ctx.strokeStyle = pageColor;
+            ctx.lineWidth = 12;
+            ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
+            ctx.setLineDash([]); // Reset dash
+
+            // --- DRAW HEADER TRACK ---
+            ctx.fillStyle = '#333333';
+            ctx.font = 'bold 36px "Comic Sans MS", sans-serif';
+            ctx.fillText('Alphabet Match-Up Fun!', 60, 90);
+
+            // Name & Date lines
+            ctx.font = '20px "Comic Sans MS", sans-serif';
+            ctx.fillStyle = '#777777';
+            ctx.fillText('Name: _______________________', 480, 75);
+            ctx.fillText('Date: ________________________', 480, 110);
+
+            // Friendly Instructions
+            ctx.fillStyle = '#555555';
+            ctx.font = 'italic 20px "Comic Sans MS", sans-serif';
+            ctx.fillText('Draw a line from the letter to its matching word and picture! ✏️', 60, 140);
+
+            // --- GENERATE LAYOUT COORDINATES ---
+            const startY = 240;
+            const endY = 950;
+            const totalItems = dataChunk.length;
+            const stepY = (endY - startY) / (totalItems - 1 || 1);
+
+            // Left Column (Letters)
+            dataChunk.forEach((item, index) => {
+                const yPos = startY + (index * stepY);
+                
+                // Draw Letter Box Wrapper
+                ctx.fillStyle = '#F5F5F5';
+                ctx.strokeStyle = pageColor;
+                ctx.lineWidth = 3;
+                roundRect(ctx, 70, yPos - 45, 120, 80, 15, true, true);
+
+                // Draw Text
+                ctx.fillStyle = '#222222';
+                ctx.font = 'bold 38px "Comic Sans MS", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(item.letter, 130, yPos + 10);
+
+                // Interactive Connection Node
+                ctx.beginPath();
+                ctx.arc(220, yPos, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#333333';
+                ctx.fill();
+            });
+
+            // Right Column (Words + Emojis)
+            shuffledRightColumn.forEach((item, index) => {
+                const yPos = startY + (index * stepY);
+
+                // Reset alignment for right side elements
+                ctx.textAlign = 'left';
+
+                // Interactive Connection Node
+                ctx.beginPath();
+                ctx.arc(540, yPos, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#333333';
+                ctx.fill();
+
+                // Draw Emojis (acting as our highly reliable images)
+                ctx.font = '55px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+                ctx.fillText(item.emoji, 570, yPos + 18);
+
+                // Draw Sight Word
+                ctx.fillStyle = '#333333';
+                ctx.font = 'bold 32px "Comic Sans MS", sans-serif';
+                ctx.fillText(item.word, 660, yPos + 10);
+
+                // Subtle guide line below word for writing practice if they want
+                ctx.strokeStyle = '#DDDDDD';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(660, yPos + 20);
+                ctx.lineTo(760, yPos + 20);
+                ctx.stroke();
+            });
+            
+            // Footer page number tracker
+            ctx.fillStyle = '#aaa';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Page ${pageNumber} of ${Math.ceil(sightWordData.length / itemsPerPage)}`, canvas.width / 2, 1030);
+        }
+
+        // Canvas Helper function for rounded rectangles
+        function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+            if (typeof radius === 'number') {
+                radius = {tl: radius, tr: radius, br: radius, bl: radius};
+            }
+            ctx.beginPath();
+            ctx.moveTo(x + radius.tl, y);
+            ctx.lineTo(x + width - radius.tr, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+            ctx.lineTo(x + width, y + height - radius.br);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+            ctx.lineTo(x + radius.bl, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+            ctx.lineTo(x, y + radius.tl);
+            ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+            ctx.closePath();
+            if (fill) ctx.fill();
+            if (stroke) ctx.stroke();
+        }
+    </script>
+</body>
+</html>
